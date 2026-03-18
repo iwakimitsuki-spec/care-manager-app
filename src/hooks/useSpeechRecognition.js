@@ -21,8 +21,12 @@ export const useSpeechRecognition = () => {
         recognitionRef.current = new SpeechRecognition();
         const recognition = recognitionRef.current;
 
+        // Android Chromeの深刻な重複バグへの対応策: 
+        // Androidの場合は暫定結果(interim)を切ることで二重発火を完全に防止する
+        const isAndroid = /Android/i.test(navigator.userAgent);
+
         recognition.continuous = true;
-        recognition.interimResults = true;
+        recognition.interimResults = !isAndroid; // Androidだけfalseにする
         recognition.lang = 'ja-JP';
 
         recognition.onresult = (event) => {
