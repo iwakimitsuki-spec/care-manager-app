@@ -4,6 +4,7 @@ import { reconstructTranscriptWithAI, analyzeAudioWithAI } from '../utils/gemini
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
 
 export const Recorder = ({ isRecording, toggleRecording, transcript, setTranscript, resetTranscript }) => {
+    const [recordMode, setRecordMode] = useState('text'); // 'text' or 'audio'
     const [isReconstructing, setIsReconstructing] = useState(false);
     const [isAnalyzingAudio, setIsAnalyzingAudio] = useState(false);
     const [error, setError] = useState('');
@@ -38,20 +39,36 @@ export const Recorder = ({ isRecording, toggleRecording, transcript, setTranscri
     };
 
     const handleToggleRecording = () => {
-        if (isRecording || isAudioRecording) {
-            if (isRecording) toggleRecording();
-            if (isAudioRecording) stopAudioRecording();
-        } else {
+        if (recordMode === 'text') {
             toggleRecording();
-            startAudioRecording();
+        } else {
+            if (isAudioRecording) stopAudioRecording();
+            else startAudioRecording();
         }
     };
 
     return (
         <div className="card">
             <div className="header mb-4">
-                <h2 className="header-title">録音・文字起こし</h2>
-                <p className="header-subtitle">会話をリアルタイムでテキスト化します</p>
+                <h2 className="header-title">録音モード選択</h2>
+                <p className="header-subtitle">用途に合わせてモードを切り替えてください</p>
+            </div>
+
+            <div className="tabs mb-4">
+                <button
+                    className={`tab ${recordMode === 'text' ? 'active' : ''}`}
+                    onClick={() => setRecordMode('text')}
+                    disabled={isRecording || isAudioRecording}
+                >
+                    📝 リアルタイム文字起こし
+                </button>
+                <button
+                    className={`tab ${recordMode === 'audio' ? 'active' : ''}`}
+                    onClick={() => setRecordMode('audio')}
+                    disabled={isRecording || isAudioRecording}
+                >
+                    🎙️ AI高精度録音（話者分離・要約）
+                </button>
             </div>
 
             <div className="flex-between mb-4">
@@ -74,70 +91,92 @@ export const Recorder = ({ isRecording, toggleRecording, transcript, setTranscri
                 </button>
             </div>
 
-            {isRecording && (
-                <div className="recording-indicator">
+            {/* 録音中インジケーター */}
+            {(isRecording || isAudioRecording) && (
+                <div className="recording-indicator" style={{ marginBottom: '1rem' }}>
                     <div className="dot"></div>
-                    録音中...（文字起こし & 高音質バックアップ）
+                    {recordMode === 'text' ? 'リアルタイム文字起こし中...' : '高音質データ録音中... (文字は表示されませんが録音されています)'}
                 </div>
             )}
 
-            <div className="transcript-box" style={{ marginBottom: '1.5rem' }}>
-                {error && (
-                    <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--destructive)', padding: '0.75rem', borderRadius: 'var(--radius-md)', fontSize: '0.85rem', marginBottom: '1rem', display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
-                        <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
-                        <span>{error}</span>
-                    </div>
-                )}
-                {audioApiError && (
-                    <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--destructive)', padding: '0.75rem', borderRadius: 'var(--radius-md)', fontSize: '0.85rem', marginBottom: '1rem', display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
-                        <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
-                        <span>{audioApiError}</span>
-                    </div>
-                )}
-                {transcript ? (
-                    <p style={{ whiteSpace: 'pre-wrap' }}>{transcript}</p>
-                ) : (
-                    <div className="transcript-placeholder">
-                        録音を開始すると、ここにテキストが表示されます
-                    </div>
-                )}
-            </div>
+            {/* Error Displays */}
+            {error && recordMode === 'text' && (
+                <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--destructive)', padding: '0.75rem', borderRadius: 'var(--radius-md)', fontSize: '0.85rem', marginBottom: '1rem', display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+                    <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
+                    <span>{error}</span>
+                </div>
+            )}
+            {audioApiError && recordMode === 'audio' && (
+                <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--destructive)', padding: '0.75rem', borderRadius: 'var(--radius-md)', fontSize: '0.85rem', marginBottom: '1rem', display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+                    <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
+                    <span>{audioApiError}</span>
+                </div>
+            )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {/* 録音データがある場合のみ表示される高精度解析ボタン */}
-                {audioBlob && (
-                    <button
-                        className="btn"
-                        onClick={handleAnalyzeAudio}
-                        disabled={isAnalyzingAudio || isRecording || isAudioRecording}
-                        style={{ backgroundColor: '#10b981', borderColor: '#10b981', color: 'white', width: '100%', padding: '0.8rem' }}
-                    >
-                        {isAnalyzingAudio ? <Loader2 size={18} className="spin" /> : <Sparkles size={18} />}
-                        {isAnalyzingAudio ? '音声をAIが聞き取り中 (約10〜30秒)...' : '✨ 完了した録音データから「超高精度な議事録・話者分離」を作成'}
-                    </button>
-                )}
+            {/* Content Area Based on Mode */}
+            {recordMode === 'text' ? (
+                <>
+                    <div className="transcript-box" style={{ marginBottom: '1.5rem' }}>
+                        {transcript ? (
+                            <p style={{ whiteSpace: 'pre-wrap' }}>{transcript}</p>
+                        ) : (
+                            <div className="transcript-placeholder">
+                                録音を開始すると、ここにテキストが表示されます
+                            </div>
+                        )}
+                    </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
-                    <button
-                        className="btn btn-secondary"
-                        onClick={handleReconstruct}
-                        disabled={!transcript || isReconstructing || isRecording}
-                        title="AIが文脈から話者を推測し、台本形式に整理します"
-                        style={{ backgroundColor: '#8b5cf6', borderColor: '#8b5cf6', color: 'white', flex: 1 }}
-                    >
-                        {isReconstructing ? <Loader2 size={16} className="spin" /> : <Users size={16} />}
-                        {isReconstructing ? '話者を分離中...' : 'テキストの文脈から話者分離 (AI)'}
-                    </button>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+                        <button
+                            className="btn btn-secondary"
+                            onClick={handleReconstruct}
+                            disabled={!transcript || isReconstructing || isRecording}
+                            title="AIが文脈から話者を推測し、台本形式に整理します"
+                            style={{ backgroundColor: '#8b5cf6', borderColor: '#8b5cf6', color: 'white', flex: 1 }}
+                        >
+                            {isReconstructing ? <Loader2 size={16} className="spin" /> : <Users size={16} />}
+                            {isReconstructing ? '話者を分離中...' : 'テキストの文脈から話者分離 (AI)'}
+                        </button>
+                        <button
+                            className="btn btn-outline"
+                            onClick={resetTranscript}
+                            disabled={!transcript}
+                        >
+                            <Trash2 size={16} />
+                            クリア
+                        </button>
+                    </div>
+                </>
+            ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    {/* Audio Mode Content */}
+                    <div className="transcript-box" style={{ marginBottom: '1.5rem', minHeight: '150px', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: 'var(--text-muted)' }}>
+                        {audioBlob ? '✅ 録音データの準備が完了しました。下のボタンを押してAIに解析させてください。' : '録音を開始してください。音声は直接AIに送られるため、非常に高い精度で話者分離・議事録作成が行われます。'}
+                    </div>
+
+                    {audioBlob && (
+                        <button
+                            className="btn"
+                            onClick={handleAnalyzeAudio}
+                            disabled={isAnalyzingAudio || isAudioRecording}
+                            style={{ backgroundColor: '#10b981', borderColor: '#10b981', color: 'white', width: '100%', padding: '0.8rem' }}
+                        >
+                            {isAnalyzingAudio ? <Loader2 size={18} className="spin" /> : <Sparkles size={18} />}
+                            {isAnalyzingAudio ? '音声をAIが聞き取り中 (約10〜30秒)...' : '✨ 録音データから「超高精度な議事録・話者分離」を作成'}
+                        </button>
+                    )}
+
                     <button
                         className="btn btn-outline"
-                        onClick={() => { resetTranscript(); resetAudio(); }}
-                        disabled={!transcript && !audioBlob}
+                        onClick={resetAudio}
+                        disabled={!audioBlob}
+                        style={{ alignSelf: 'flex-end' }}
                     >
                         <Trash2 size={16} />
-                        クリア
+                        録音データを破棄
                     </button>
                 </div>
-            </div>
+            )}
         </div>
     );
 };
