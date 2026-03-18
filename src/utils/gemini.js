@@ -1,40 +1,10 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const getAvailableModel = async (apiKey) => {
-    try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-        if (!response.ok) {
-            throw new Error('APIキーが無効か、モデル一覧の取得に失敗しました。');
-        }
-        const data = await response.json();
-        const availableModels = data.models.filter(m => m.supportedGenerationMethods.includes("generateContent"));
-
-        if (availableModels.length === 0) {
-            throw new Error('利用可能なモデルが見つかりません。');
-        }
-
-        // 過去の実績から、ユーザーの無料枠で確実に動く 1.5-flash を何よりも優先する
-        // 2.0-flash等 は無料枠の制限（Limit: 0）に引っかかる環境があるため後回しにする
-        const precise15Flash = availableModels.find(m => m.name === "models/gemini-1.5-flash");
-        const flash15 = availableModels.find(m => m.name.includes("1.5") && m.name.includes("flash"));
-
-        const precise20Flash = availableModels.find(m => m.name === "models/gemini-2.0-flash");
-        const flash20 = availableModels.find(m => m.name.includes("2.0") && m.name.includes("flash"));
-
-        const pro15 = availableModels.find(m => m.name.includes("1.5") && m.name.includes("pro"));
-
-        // どんなモデルであれ、最新のflashを予備として拾う
-        const flashModel = availableModels.find(m => m.name.includes("flash"));
-        const proModel = availableModels.find(m => m.name.includes("pro"));
-
-        const selectedModelInfo = precise15Flash || flash15 || precise20Flash || flash20 || pro15 || flashModel || proModel || availableModels[0];
-
-        // name is usually returned as "models/gemini-1.5-flash", we only want the suffix
-        return selectedModelInfo.name.replace('models/', '');
-    } catch (err) {
-        console.error("Failed to fetch available models", err);
-        return "gemini-1.5-flash"; // fallback to default
-    }
+    // GoogleのAPI側で「Gemini 2.0」や「2.5」が優先的に返却されるよう仕様変更があった模様ですが、
+    // 多くの無料アカウントでは2.0以上の無料枠制限（Limit: 0）が厳しくかかっておりエラーになるため、
+    // 今回のアプリでは全員が確実・無制限に無料で使える「gemini-1.5-flash」に固定します。
+    return "gemini-1.5-flash";
 };
 
 export const generateMinuteWithAI = async (transcript, type) => {
