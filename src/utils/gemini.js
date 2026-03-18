@@ -170,11 +170,6 @@ export const analyzeAudioWithAI = async (audioBlob) => {
     const genAI = new GoogleGenerativeAI(apiKey);
     const modelName = await getAvailableModel(apiKey);
 
-    // Check if a 1.5, 2.0, or 2.5 model is selected (1.0 pro doesn't support audio)
-    if (!modelName.includes('1.5') && !modelName.includes('2.0') && !modelName.includes('2.5')) {
-        throw new Error(`音声直接認識には最新のGeminiモデル（1.5以上）が必要です。現在のモデル: ${modelName}。APIキーの設定をご確認ください。`);
-    }
-
     const model = genAI.getGenerativeModel({ model: modelName });
 
     const systemPrompt = `あなたは極めて優秀なケアマネージャーのアシスタントです。
