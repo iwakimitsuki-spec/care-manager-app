@@ -150,8 +150,26 @@ export const Recorder = ({ isRecording, toggleRecording, transcript, setTranscri
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                     {/* Audio Mode Content */}
-                    <div className="transcript-box" style={{ marginBottom: '1.5rem', minHeight: '150px', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: 'var(--text-muted)' }}>
-                        {audioBlob ? '✅ 録音データの準備が完了しました。下のボタンを押してAIに解析させてください。' : '録音を開始してください。音声は直接AIに送られるため、非常に高い精度で話者分離・議事録作成が行われます。'}
+                    <div className="transcript-box" style={{ marginBottom: '1.5rem', minHeight: '150px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: '1rem' }}>
+                        {audioBlob ? (
+                            <>
+                                <p style={{ margin: 0, fontWeight: 'bold', color: 'var(--success)' }}>✅ 録音完了</p>
+                                <audio
+                                    controls
+                                    src={URL.createObjectURL(audioBlob)}
+                                    style={{ width: '100%', maxWidth: '400px', height: '40px', outline: 'none' }}
+                                />
+                                <a
+                                    href={URL.createObjectURL(audioBlob)}
+                                    download="care-reporter-audio.webm"
+                                    style={{ fontSize: '0.85rem', color: 'var(--primary)', textDecoration: 'underline' }}
+                                >
+                                    録音データ (音声ファイル) をダウンロード
+                                </a>
+                            </>
+                        ) : (
+                            <span style={{ color: 'var(--text-muted)' }}>録音を開始してください。音声は直接AIに送られるため、非常に高い精度で話者分離・議事録作成が行われます。</span>
+                        )}
                     </div>
 
                     {audioBlob && (
