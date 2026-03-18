@@ -13,13 +13,19 @@ const getAvailableModel = async (apiKey) => {
             throw new Error('利用可能なモデルが見つかりません。');
         }
 
-        // Prefer 1.5-flash, then 1.5-pro, then any flash, then any pro
+        // 2.5は現在高負荷(503)になりやすいため、安定している1.5 または 2.0 を優先的に探す
+        const precise15Flash = availableModels.find(m => m.name === "models/gemini-1.5-flash");
+        const precise20Flash = availableModels.find(m => m.name === "models/gemini-2.0-flash");
+
         const flash15 = availableModels.find(m => m.name.includes("1.5") && m.name.includes("flash"));
+        const flash20 = availableModels.find(m => m.name.includes("2.0") && m.name.includes("flash"));
         const pro15 = availableModels.find(m => m.name.includes("1.5") && m.name.includes("pro"));
+
+        // どんなモデルであれ、最新のflashを予備として拾う
         const flashModel = availableModels.find(m => m.name.includes("flash"));
         const proModel = availableModels.find(m => m.name.includes("pro"));
 
-        const selectedModelInfo = flash15 || pro15 || flashModel || proModel || availableModels[0];
+        const selectedModelInfo = precise15Flash || precise20Flash || flash15 || flash20 || pro15 || flashModel || proModel || availableModels[0];
 
         // name is usually returned as "models/gemini-1.5-flash", we only want the suffix
         return selectedModelInfo.name.replace('models/', '');
@@ -163,9 +169,9 @@ export const analyzeAudioWithAI = async (audioBlob) => {
     const genAI = new GoogleGenerativeAI(apiKey);
     const modelName = await getAvailableModel(apiKey);
 
-    // Check if a 1.5 model is selected (1.0 pro doesn't support audio)
-    if (!modelName.includes('1.5')) {
-        throw new Error('音声直接認識には Gemini 1.5 系モデルが必要です。「gemini-1.5-flash」などが有効になっているAPIキーをご利用ください。');
+    // Check if a 1.5, 2.0, or 2.5 model is selected (1.0 pro doesn't support audio)
+    if (!modelName.includes('1.5') && !modelName.includes('2.0') && !modelName.includes('2.5')) {
+        throw new Error(`音声直接認識には最新のGeminiモデル（1.5以上）が必要です。現在のモデル: ${modelName}。APIキーの設定をご確認ください。`);
     }
 
     const model = genAI.getGenerativeModel({ model: modelName });
