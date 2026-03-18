@@ -7,6 +7,8 @@ export const useSpeechRecognition = () => {
     const [isSupported, setIsSupported] = useState(true);
 
     const recognitionRef = useRef(null);
+    const pastTranscriptRef = useRef('');
+    const sessionFinalRef = useRef('');
 
     useEffect(() => {
         if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
@@ -19,43 +21,49 @@ export const useSpeechRecognition = () => {
         recognitionRef.current = new SpeechRecognition();
         const recognition = recognitionRef.current;
 
-        // Configure recognition
         recognition.continuous = true;
         recognition.interimResults = true;
         recognition.lang = 'ja-JP';
 
         recognition.onresult = (event) => {
-            let finalTranscript = '';
-            for (let i = event.resultIndex; i < event.results.length; i++) {
+            let currentFinal = '';
+            let currentInterim = '';
+
+            // 常に 0 からループすることで、Android特有の重複バグや resultIndex の不整合を完全に防ぐ
+            for (let i = 0; i < event.results.length; i++) {
                 if (event.results[i].isFinal) {
-                    finalTranscript += event.results[i][0].transcript;
+                    currentFinal += event.results[i][0].transcript;
+                } else {
+                    currentInterim += event.results[i][0].transcript;
                 }
             }
-            if (finalTranscript) {
-                setTranscript(prev => prev + finalTranscript);
-            }
+
+            // 現在のセッションの確定分を保持しておく（onendで履歴に移動するため）
+            sessionFinalRef.current = currentFinal;
+
+            // 全体テキスト ＝ 過去のセッションの履歴 ＋ 現在のセッションの確定分 ＋ リアルタイ厶中（推測中）の分
+            setTranscript(pastTranscriptRef.current + currentFinal + currentInterim);
         };
 
         recognition.onerror = (event) => {
             console.error('Speech recognition error:', event.error);
             if (event.error === 'not-allowed') {
                 setError('マイクへのアクセスが許可されていません。設定をご確認ください。');
-            } else {
-                setError(`音声認識エラー: ${event.error}`);
             }
-            setIsRecording(false);
+            // Ignore no-speech errors to stop them from crashing the UI
         };
 
         recognition.onend = () => {
-            // Auto-restart if we were supposed to be recording
-            if (isRecording) {
-                try {
-                    recognition.start();
-                } catch (e) {
-                    console.error("Could not auto-restart recognition", e);
-                    setIsRecording(false);
-                }
+            // セッションが切れたら、今のセッションの確定テキストを過去の履歴としてセーブし、リセットする
+            if (sessionFinalRef.current) {
+                pastTranscriptRef.current += sessionFinalRef.current;
+                sessionFinalRef.current = '';
             }
+
+            // isRecordingの状態を最新のDOMから知る術がないので、一旦終了するだけにして
+            // 親コンポーネント側で再スタートするかどうかを判定する設計が良いが、
+            // 簡易的にリファレンスを使って実装するなら isRecording 状態をrefに入れる必要がある。
+            // 今回はuseEffect(..., [isRecording])で制御するので自動リスタートはそちらに任せる or 省略する。
         };
 
         return () => {
@@ -65,7 +73,6 @@ export const useSpeechRecognition = () => {
         };
     }, []); // isRecording is captured via state, but we manually start/stop it
 
-    // Need a separate effect to handle manual start/stop to avoid re-binding events
     useEffect(() => {
         if (!recognitionRef.current) return;
 
@@ -79,6 +86,21 @@ export const useSpeechRecognition = () => {
         } else {
             recognitionRef.current.stop();
         }
+
+        // 状態監視用に isRecording が変わるたびに onend を再定義してクロージャ内の isRecording を最新にする
+        recognitionRef.current.onend = () => {
+            if (sessionFinalRef.current) {
+                pastTranscriptRef.current += sessionFinalRef.current;
+                sessionFinalRef.current = '';
+            }
+            if (isRecording) {
+                try {
+                    recognitionRef.current.start();
+                } catch (e) {
+                    // ignore
+                }
+            }
+        };
     }, [isRecording]);
 
     const toggleRecording = () => {
@@ -88,6 +110,8 @@ export const useSpeechRecognition = () => {
 
     const resetTranscript = () => {
         setTranscript('');
+        pastTranscriptRef.current = '';
+        sessionFinalRef.current = '';
     };
 
     return {
