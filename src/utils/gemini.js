@@ -1,10 +1,39 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const getAvailableModel = async (apiKey) => {
-    // GoogleのAPI側で「Gemini 2.0」や「2.5」が優先的に返却されるよう仕様変更があった模様ですが、
-    // 多くの無料アカウントでは2.0以上の無料枠制限（Limit: 0）が厳しくかかっておりエラーになるため、
-    // 今回のアプリでは全員が確実・無制限に無料で使える「gemini-1.5-flash」に固定します。
-    return "gemini-1.5-flash";
+    try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+        if (!response.ok) {
+            throw new Error('APIキーが無効か、モデル一覧の取得に失敗しました。');
+        }
+        const data = await response.json();
+
+        // 2.0と2.5は無料枠エラー(Limit 0, 503)が出たため完全に除外する
+        const availableModels = data.models.filter(m =>
+            m.supportedGenerationMethods.includes("generateContent") &&
+            !m.name.includes("2.0") &&
+            !m.name.includes("2.5")
+        );
+
+        if (availableModels.length === 0) {
+            throw new Error('利用可能な安定版(1.5系)モデルが見つかりません。');
+        }
+
+        // 1.5 の flash を最優先で探す ("models/gemini-1.5-flash-latest" 等にもマッチさせる)
+        const flash15 = availableModels.find(m => m.name.includes("1.5") && m.name.includes("flash"));
+        const pro15 = availableModels.find(m => m.name.includes("1.5") && m.name.includes("pro"));
+
+        // それもなければとにかく flash -> pro -> 最初に見つかったもの
+        const flashModel = availableModels.find(m => m.name.includes("flash"));
+        const proModel = availableModels.find(m => m.name.includes("pro"));
+
+        const selectedModelInfo = flash15 || pro15 || flashModel || proModel || availableModels[0];
+
+        return selectedModelInfo.name.replace('models/', '');
+    } catch (err) {
+        console.error("Failed to fetch available models", err);
+        throw new Error('モデルの自動選択に失敗しました。');
+    }
 };
 
 export const generateMinuteWithAI = async (transcript, type) => {
