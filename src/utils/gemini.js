@@ -13,19 +13,21 @@ const getAvailableModel = async (apiKey) => {
             throw new Error('利用可能なモデルが見つかりません。');
         }
 
-        // 2.5は現在高負荷(503)になりやすいため、安定している1.5 または 2.0 を優先的に探す
+        // 過去の実績から、ユーザーの無料枠で確実に動く 1.5-flash を何よりも優先する
+        // 2.0-flash等 は無料枠の制限（Limit: 0）に引っかかる環境があるため後回しにする
         const precise15Flash = availableModels.find(m => m.name === "models/gemini-1.5-flash");
-        const precise20Flash = availableModels.find(m => m.name === "models/gemini-2.0-flash");
-
         const flash15 = availableModels.find(m => m.name.includes("1.5") && m.name.includes("flash"));
+
+        const precise20Flash = availableModels.find(m => m.name === "models/gemini-2.0-flash");
         const flash20 = availableModels.find(m => m.name.includes("2.0") && m.name.includes("flash"));
+
         const pro15 = availableModels.find(m => m.name.includes("1.5") && m.name.includes("pro"));
 
         // どんなモデルであれ、最新のflashを予備として拾う
         const flashModel = availableModels.find(m => m.name.includes("flash"));
         const proModel = availableModels.find(m => m.name.includes("pro"));
 
-        const selectedModelInfo = precise15Flash || precise20Flash || flash15 || flash20 || pro15 || flashModel || proModel || availableModels[0];
+        const selectedModelInfo = precise15Flash || flash15 || precise20Flash || flash20 || pro15 || flashModel || proModel || availableModels[0];
 
         // name is usually returned as "models/gemini-1.5-flash", we only want the suffix
         return selectedModelInfo.name.replace('models/', '');
