@@ -135,3 +135,68 @@ export const reconstructTranscriptWithAI = async (transcript) => {
         throw new Error(`AIからの応答の取得に失敗しました: ${error.message}`);
     }
 };
+
+export const analyzeAudioWithAI = async (audioBlob) => {
+    const apiKey = localStorage.getItem('gemini_api_key');
+
+    if (!apiKey) {
+        throw new Error('Gemini APIキーが設定されていません。ヘッダーの設定アイコンからAPIキーを入力してください。');
+    }
+
+    if (!audioBlob) {
+        throw new Error('音声の録音データが存在しません。');
+    }
+
+    // Blob を Base64 文字列に変換
+    const base64Audio = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = () => {
+            const base64data = reader.result.split(',')[1];
+            resolve(base64data);
+        };
+        reader.onerror = () => reject(new Error('録音データの読み込みに失敗しました。'));
+    });
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const modelName = await getAvailableModel(apiKey);
+
+    // Check if a 1.5 model is selected (1.0 pro doesn't support audio)
+    if (!modelName.includes('1.5')) {
+        throw new Error('音声直接認識には Gemini 1.5 系モデルが必要です。「gemini-1.5-flash」などが有効になっているAPIキーをご利用ください。');
+    }
+
+    const model = genAI.getGenerativeModel({ model: modelName });
+
+    const systemPrompt = `あなたは極めて優秀なケアマネージャーのアシスタントです。
+添付された音声データは、ケアマネージャーと利用者（または家族、サービス提供者等）のリアルな会話を録音したものです。
+この音声を直接聞き取り、以下の2つの出力を「必ずこの通りの見出し」を使って高精度に作成してください！
+
+【出力ルール】
+■ 話者分離スクリプト
+（音声から誰が発言したかを文脈・声色で推測し、「ケアマネ:」「利用者:」「娘:」など話者を類推してきれいに台本化してください。相槌などは適宜整理して読みやすくして構いません）
+
+■ 要点メモ
+（上記の会話の中で特筆すべき重要なポイント、本人の意向、変化、次回の課題などを箇条書きで分かりやすく抽出してください）
+`;
+
+    try {
+        const result = await model.generateContent([
+            { text: systemPrompt },
+            {
+                inlineData: {
+                    mimeType: audioBlob.type || 'audio/webm',
+                    data: base64Audio
+                }
+            }
+        ]);
+
+        return result.response.text();
+    } catch (error) {
+        console.error("Gemini Audio AI Error:", error);
+        if (error.message && error.message.includes('API key not valid')) {
+            throw new Error('Gemini APIキーが無効です。設定画面から正しいAPIキーを入力してください。');
+        }
+        throw new Error(`AIからの応答の取得に失敗しました: ${error.message}`);
+    }
+};
