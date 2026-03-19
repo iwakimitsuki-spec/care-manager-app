@@ -56,6 +56,7 @@ export const generateMinuteWithAI = async (transcript, type) => {
 以下の会話録音テキストをもとに、「モニタリング訪問記録」を作成してください。
 出力は以下のフォーマットに厳密に従い、会話から読み取れる情報を該当箇所に要約して記載してください。箇条書きを多用して読みやすくしてください。
 情報が不足している箇所は空欄または「特になし」としてください。
+※マークダウン文字（**や*など）は使用せず、プレーンテキスト（・など）で出力してください。
 
 ■ モニタリング訪問記録
 【訪問先（対象者）】: 
@@ -70,6 +71,7 @@ export const generateMinuteWithAI = async (transcript, type) => {
 以下の会話録音テキストをもとに、「サービス担当者会議 議事録」を作成してください。
 出力は以下のフォーマットに厳密に従い、会話から読み取れる情報を該当箇所に要約して記載してください。箇条書きを多用して読みやすくしてください。
 情報が不足している箇所は空欄または「特になし」としてください。
+※マークダウン文字（**や*など）は使用せず、プレーンテキスト（・など）で出力してください。
 
 ■ サービス担当者会議 議事録
 【開催日時】: 
@@ -88,7 +90,9 @@ export const generateMinuteWithAI = async (transcript, type) => {
             { text: `会話テキスト:\n${transcript}` }
         ]);
 
-        const aiText = result.response.text();
+        let aiText = result.response.text();
+        // マークダウンの星を取り除く
+        aiText = aiText.replace(/\*\*/g, '').replace(/\*/g, '・');
 
         const date = new Date();
         const formattedDate = `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
@@ -127,7 +131,8 @@ export const reconstructTranscriptWithAI = async (transcript) => {
 - 話者は「ケアマネージャー」「利用者」「家族（推測される場合）」などのラベルを使用すること。
 - 話者が交替するごとに改行し、「話者名: 発言内容」の形式で出力すること。
 - 意味をなさない相槌の連続などは適宜整理して読みやすくすること。ただし、重要な会話の内容は変えたり省略したりしないこと。
-- 会話ログのみを出力し、挨拶文や解説は一切含めないこと。`;
+- 会話ログのみを出力し、挨拶文や解説は一切含めないこと。
+- マークダウン文字（**や*など）は絶対に使用せず、プレーンテキストのみで出力すること。`;
 
     try {
         const result = await model.generateContent([
@@ -135,7 +140,9 @@ export const reconstructTranscriptWithAI = async (transcript) => {
             { text: `元のテキスト:\n${transcript}` }
         ]);
 
-        return result.response.text();
+        let output = result.response.text();
+        // マークダウンの星を取り除く
+        return output.replace(/\*\*/g, '').replace(/\*/g, '・');
     } catch (error) {
         console.error("Gemini API Error:", error);
         if (error.message && error.message.includes('API key not valid')) {
@@ -180,6 +187,7 @@ export const analyzeAudioWithAI = async (audioBlob) => {
 ・音声の内容が短い、無音、あるいはノイズのみの場合、絶対に一般的なケアマネージャーの会話などを推測して勝手に作り出さないでください。
 ・会話が聞き取れない等の場合は必ず「音声が聞き取れませんでした」とだけ出力し、架空の会話を書かないでください。
 ・音声で実際に話されていない単語や意向を1文字たりとも創作して追加しないでください。
+・出力はプレーンテキストのみとし、マークダウン文字（**や*など）は絶対に使用しないでください。
 
 【出力ルール】（※聞こえた場合のみ以下を作成）
 ■ 話者分離スクリプト
@@ -199,7 +207,9 @@ export const analyzeAudioWithAI = async (audioBlob) => {
             }
         ]);
 
-        return result.response.text();
+        let finalOutput = result.response.text();
+        // マークダウンの星を取り除く
+        return finalOutput.replace(/\*\*/g, '').replace(/\*/g, '・');
     } catch (error) {
         console.error("Gemini Audio AI Error:", error);
         if (error.message && error.message.includes('API key not valid')) {
